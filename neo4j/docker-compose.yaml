@@ -1,0 +1,56 @@
+version: "3"
+
+services:
+  neo4j:
+    image: "neo4j:4.4.6"  # or "neo4j:4.4.6-enterprise"
+    restart: unless-stopped
+    user: "1001:1002"  # use `id -u` and `id -g` to find UID and GID
+    ports:
+      - "7687:7687"
+    volumes:
+      - neo4j-data:/data
+    environment:
+      - NEO4J_dbms_default__listen__address=0.0.0.0
+      - NEO4J_dbms_connector_bolt_advertised__address=repositorioactividadesups.ga:443
+      - NEO4J_dbms_allow__upgrade=true
+      - NEO4J_ACCEPT_LICENSE_AGREEMENT=yes  # if using enterprise edition
+      - NEO4J_metrics_enabled=false  # a little bit of privacy
+      - NEO4J_AUTH=neo4j/test
+
+    networks:
+      - traefik
+    labels: 
+      - "traefik.enable=true"
+
+      # Neo4j browser service
+      - "traefik.http.routers.neo4j.rule=Host(`repositorioactividadesups.ga`) && PathPrefix(`/neo4j`) || PathPrefix(`/browser`)" 
+      - "traefik.http.routers.neo4j.service=neo4j"
+      - "traefik.http.services.neo4j.loadbalancer.server.port=7474"
+      - "traefik.http.routers.neo4j.entrypoints=websecure"
+      - "traefik.http.routers.neo4j.tls.certresolver=myresolver"
+      
+      # neo4j bolt service for browser websocket
+      - "traefik.http.routers.neo4j-bolt.rule=Host(`repositorioactividadesups.ga`)" 
+      - "traefik.http.routers.neo4j-bolt.service=neo4j-bolt"
+      - "traefik.http.routers.neo4j-bolt.entrypoints=websecure"
+      - "traefik.http.services.neo4j-bolt.loadbalancer.server.port=7687"
+      - "traefik.http.routers.neo4j-bolt.tls.certresolver=myresolver"
+
+      - "traefik.http.middlewares.sslheader.headers.customrequestheaders.X-Forwarded-Proto=https,wss"
+      - "traefik.http.routers.neo4j-bolt.middlewares=sslheader"
+
+      # Bolt service for drivers
+      - "traefik.tcp.routers.neo4j-bolt.rule=HostSNI(`repositorioactividadesups.ga`)"
+      - "traefik.tcp.routers.neo4j-bolt.service=neo4j-bolt"
+      - "traefik.tcp.routers.neo4j-bolt.entrypoints=websecure"
+      - "traefik.tcp.routers.neo4j-bolt.tls.passthrough=true"
+      - "traefik.tcp.services.neo4j-bolt.loadbalancer.server.port=7687"
+      - "traefik.tcp.routers.neo4j-bolt.tls.certresolver=myresolver"
+
+volumes:
+  neo4j-data:
+
+networks:
+  traefik:
+    external: true
+    name: traefik

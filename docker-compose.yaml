@@ -1,0 +1,46 @@
+version: "3"
+
+services:
+
+  traefik:
+    image: "traefik:v2.6"
+    container_name: "traefik"
+    restart: always
+    networks:
+      - traefik
+    command:
+      # Docker configuration
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+
+      # Logging
+      - "--accesslog.filepath=/logs/access.log"
+      - "--accesslog.bufferingsize=100"
+
+      # Entrypoint
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+
+      # SSL configuration
+      - "--certificatesresolvers.myresolver.acme.dnschallenge=true"
+      - "--certificatesresolvers.myresolver.acme.dnschallenge.provider=cloudflare"
+      - "--certificatesresolvers.myresolver.acme.email=malkiyupanki12@gmail.com"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+      # HTTP -> HTTPS
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+
+    environment:
+      - "CF_DNS_API_TOKEN=khnetqFsM2CWI7QMkMP0QGn6KRGQOhbRlwDD3BuM"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - "./letsencrypt:/letsencrypt"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./logs:/logs"
+
+networks:
+  traefik:
+    name: traefik
+
